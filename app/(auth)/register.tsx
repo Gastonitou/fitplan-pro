@@ -19,10 +19,13 @@ export default function RegisterScreen() {
       return;
     }
     setLoading(true);
-    const { error } = await supabase.auth.signUp({ email, password, options: { data: { name } } });
+    const { data, error } = await supabase.auth.signUp({ email, password, options: { data: { name } } });
     setLoading(false);
     if (error) {
       Alert.alert("Registration failed", error.message);
+    } else if (data?.session) {
+      // Auto-login erfolgreich (email confirmation ist AUS)
+      router.replace("/(tabs)");
     } else {
       Alert.alert("Success", "Account created! Please confirm your email, then sign in.");
       router.replace("/(auth)/login");

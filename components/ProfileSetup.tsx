@@ -33,6 +33,8 @@ export default function ProfileSetup({ onComplete }: Props) {
     setLoading(true);
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { setLoading(false); Alert.alert("Error", "Not logged in"); return; }
+    
+    console.log("Saving profile for user:", user.id);
 
     const { error } = await supabase.from("profiles").upsert({
       id: user.id, email: user.email, name,
@@ -42,8 +44,13 @@ export default function ProfileSetup({ onComplete }: Props) {
     });
 
     setLoading(false);
-    if (error) Alert.alert("Error", error.message);
-    else onComplete();
+    if (error) {
+      console.error("Profile save error:", error);
+      Alert.alert("Fehler beim Speichern", error.message + "\n\nCode: " + error.code);
+    } else {
+      console.log("Profile saved successfully!");
+      onComplete();
+    }
   }
 
   const pickerBtn = (label: string, selected: boolean, onPress: () => void) => (

@@ -20,8 +20,10 @@ export default function ProfileScreen() {
   const loadProfile = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { setLoading(false); return; }
-    const { data } = await supabase.from("profiles").select("*").eq("id", user.id).single();
-    if (data) {
+    const { data, error } = await supabase.from("profiles").select("*").eq("id", user.id).single();
+    if (error) {
+      console.error("Profile load error:", error.message, error.code);
+    } else if (data) {
       const p = data as Profile;
       setProfile(p);
       setName(p.name);

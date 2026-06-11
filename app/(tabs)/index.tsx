@@ -20,13 +20,24 @@ export default function DashboardScreen() {
 
   const loadProfile = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    if (!user) {
+      console.log("Dashboard: No user session");
+      return;
+    }
 
-    const { data } = await supabase.from("profiles").select("*").eq("id", user.id).single();
-    if (data) {
+    const { data, error } = await supabase.from("profiles").select("*").eq("id", user.id).single();
+    if (error) {
+      console.error("Dashboard: Profile load error:", error.message, "Code:", error.code);
+      // Wenn der Fehler 'relation does not exist' ist -> Tabellen existieren nicht
+      if (error.code === "42P01") {
+        Alert.alert("Datenbank nicht eingerichtet", "Die Tabellen wurden nicht erstellt. Bitte führe das SQL-Script im Supabase SQL Editor aus.");
+      }
+      setShowSetup(true);
+    } else if (data) {
       setProfile(data as Profile);
       setShowSetup(false);
     } else {
+      console.log("Dashboard: No profile found, showing setup");
       setShowSetup(true);
     }
   }, []);
