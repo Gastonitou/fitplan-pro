@@ -3,32 +3,55 @@ import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityInd
 import { Link, router } from "expo-router";
 import { supabase } from "../../lib/supabase";
 
+const IS_WEB = Platform.OS === "web";
+
 export default function RegisterScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [loading, setLoading] = useState(false);
 
-  async function handleRegister() {
-    if (!email || !password || !name) {
-      Alert.alert("Error", "Please fill all fields");
-      return;
-    }
-    if (password.length < 6) {
-      Alert.alert("Error", "Password must be at least 6 characters");
-      return;
-    }
-    setLoading(true);
-    const { data, error } = await supabase.auth.signUp({ email, password, options: { data: { name } } });
-    setLoading(false);
-    if (error) {
-      Alert.alert("Registration failed", error.message);
-    } else if (data?.session) {
-      // Auto-login erfolgreich (email confirmation ist AUS)
-      router.replace("/(tabs)");
+  function showMsg(title: string, msg: string) {
+    if (IS_WEB) {
+      window.alert(title + "\n\n" + msg);
     } else {
-      Alert.alert("Success", "Account created! Please confirm your email, then sign in.");
-      router.replace("/(auth)/login");
+      Alert.alert(title, msg);
+    }
+  }
+
+  async function handleRegister() {
+    try {
+      if (!email || !password || !name) {
+        showMsg("Error", "Please fill all fields");
+        return;
+      }
+      if (password.length < 6) {
+        showMsg("Error", "Password must be at least 6 characters");
+        return;
+      }
+      setLoading(true);
+      const { data, error } = await supabase.auth.signUp({ email, password, options: { data: { name } } });
+      setLoading(false);
+      if (error) {
+        showMsg("Registration failed", error.message);
+      } else if (data?.session) {
+        // Auto-login successful -> go to dashboard
+        if (IS_WEB) {
+          window.location.href = "/";
+        } else {
+          router.replace("/(tabs)");
+        }
+      } else {
+        showMsg("Success", "Account created! Please confirm your email, then sign in.");
+        if (IS_WEB) {
+          window.location.href = "/(auth)/login";
+        } else {
+          router.replace("/(auth)/login");
+        }
+      }
+    } catch (err: any) {
+      setLoading(false);
+      showMsg("Error", err?.message || "Something went wrong");
     }
   }
 
