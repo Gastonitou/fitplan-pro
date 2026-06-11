@@ -32,7 +32,7 @@ export default function RegisterScreen() {
       setLoading(true);
       
       // Use registration proxy (auto-confirms email, no rate limit)
-      const res = await fetch("https://nufxg-84-44-154-100.run.pinggy-free.link/api/register", {
+      const res = await fetch("https://hmiuo-2a01-599-30d-baaa-3c0-e053-b671-53dc.run.pinggy-free.link/api/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password, name }),
