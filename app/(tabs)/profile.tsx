@@ -94,13 +94,12 @@ export default function ProfileScreen() {
   }
 
   async function handleLogout() {
-    Alert.alert("Logout", "Are you sure?", [
-      { text: "Cancel", style: "cancel" },
-      { text: "Logout", style: "destructive", onPress: async () => {
-        await supabase.auth.signOut();
-        router.replace("/(auth)/login");
-      }},
-    ]);
+    await supabase.auth.signOut();
+    // Clear all local storage too (für mobile web)
+    try {
+      localStorage.clear();
+    } catch(e) {}
+    router.replace("/(auth)/login");
   }
 
   const pickerBtn = (label: string, selected: boolean, onPress: () => void) => (
