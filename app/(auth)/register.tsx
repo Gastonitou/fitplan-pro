@@ -30,28 +30,36 @@ export default function RegisterScreen() {
         return;
       }
       setLoading(true);
-      const { data, error } = await supabase.auth.signUp({ email, password, options: { data: { name } } });
+      
+      // Use registration proxy (auto-confirms email, no rate limit)
+      const res = await fetch("http://nufxg-84-44-154-100.run.pinggy-free.link/api/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password, name }),
+      });
+      const result = await res.json();
       setLoading(false);
-      if (error) {
-        showMsg("Registration failed", error.message);
-      } else if (data?.session) {
-        // Auto-login successful -> go to dashboard
+      
+      if (result.error) {
+        showMsg("Fehler", result.error);
+      } else if (result.session) {
+        // Set the session in the Supabase client
+        await supabase.auth.setSession({
+          access_token: result.session.access_token,
+          refresh_token: result.session.refresh_token,
+        });
+        showMsg("Erfolg", "Account erstellt!");
         if (IS_WEB) {
           window.location.href = "/";
         } else {
           router.replace("/(tabs)");
         }
       } else {
-        showMsg("Success", "Account created! Please confirm your email, then sign in.");
-        if (IS_WEB) {
-          window.location.href = "/(auth)/login";
-        } else {
-          router.replace("/(auth)/login");
-        }
+        showMsg("Fehler", "Keine Session erhalten. Bitte nochmal versuchen.");
       }
     } catch (err: any) {
       setLoading(false);
-      showMsg("Error", err?.message || "Something went wrong");
+      showMsg("Fehler", err?.message || "Netzwerkfehler. Proxy erreichbar?");
     }
   }
 
