@@ -46,17 +46,48 @@ export default function ProfileScreen() {
     }
     setSaving(true);
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { setSaving(false); return; }
+    if (!user) { setSaving(false); Alert.alert("Error", "Not logged in. Please re-login."); return; }
 
-    const { error } = await supabase.from("profiles").upsert({
-      id: user.id, email: user.email, name,
-      age: parseInt(age), weight: parseFloat(weight), height: parseFloat(height),
-      gender, goal, activity_level: activity,
-      updated_at: new Date().toISOString(),
-    });
+    // Save with separate update/insert instead of upsert (RLS safer)
+    let error;
+    const ageNum = parseInt(age);
+    const weightNum = parseFloat(weight);
+    const heightNum = parseFloat(height);
+    
+    // Check if profile exists
+    const { data: existing } = await supabase
+      .from("profiles")
+      .select("id")
+      .eq("id", user.id)
+      .maybeSingle();
+    
+    if (existing) {
+      const result = await supabase
+        .from("profiles")
+        .update({
+          name, age: ageNum, weight: weightNum, height: heightNum,
+          gender, goal, activity_level: activity,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", user.id);
+      error = result.error;
+    } else {
+      const result = await supabase
+        .from("profiles")
+        .insert({
+          id: user.id, email: user.email, name,
+          age: ageNum, weight: weightNum, height: heightNum,
+          gender, goal, activity_level: activity,
+        });
+      error = result.error;
+    }
+    
     setSaving(false);
-    if (error) Alert.alert("Error", error.message);
-    else {
+    if (error) {
+      console.error("Profile save error:", error);
+      Alert.alert("Fehler beim Speichern", 
+        error.message + "\nCode: " + error.code + "\n" + (error.details || ""));
+    } else {
       Alert.alert("Saved", "Profile updated successfully");
       loadProfile();
     }

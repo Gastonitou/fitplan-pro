@@ -32,21 +32,55 @@ export default function ProfileSetup({ onComplete }: Props) {
 
     setLoading(true);
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { setLoading(false); Alert.alert("Error", "Not logged in"); return; }
+    if (!user) { 
+      setLoading(false); 
+      console.error("Save failed: no user session");
+      Alert.alert("Nicht eingeloggt", "Bitte log dich neu ein und versuch es nochmal");
+      return; 
+    }
     
-    console.log("Saving profile for user:", user.id);
+    console.log("Saving profile for user:", user.id, "Session valid:", !!user);
 
-    const { error } = await supabase.from("profiles").upsert({
-      id: user.id, email: user.email, name,
-      age: ageNum, weight: weightNum, height: heightNum,
-      gender, goal, activity_level: activity,
-      updated_at: new Date().toISOString(),
-    });
+    // Prüfen ob Profil schon existiert
+    const { data: existing } = await supabase
+      .from("profiles")
+      .select("id")
+      .eq("id", user.id)
+      .maybeSingle();
+    
+    let error;
+    if (existing) {
+      // Update existierendes Profil
+      console.log("Profil existiert, update...");
+      const result = await supabase
+        .from("profiles")
+        .update({
+          name, age: ageNum, weight: weightNum, height: heightNum,
+          gender, goal, activity_level: activity,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", user.id);
+      error = result.error;
+    } else {
+      // Neues Profil anlegen
+      console.log("Kein Profil gefunden, insert...");
+      const result = await supabase
+        .from("profiles")
+        .insert({
+          id: user.id, email: user.email, name,
+          age: ageNum, weight: weightNum, height: heightNum,
+          gender, goal, activity_level: activity,
+        });
+      error = result.error;
+    }
 
     setLoading(false);
     if (error) {
       console.error("Profile save error:", error);
-      Alert.alert("Fehler beim Speichern", error.message + "\n\nCode: " + error.code);
+      Alert.alert("Fehler beim Speichern", 
+        "Fehler: " + error.message + "\n\nCode: " + error.code + 
+        "\n\nDetails: " + (error.details || "keine") +
+        "\n\nBitte Gaston Screenshot von dieser Meldung schicken");
     } else {
       console.log("Profile saved successfully!");
       onComplete();
