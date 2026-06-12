@@ -164,6 +164,64 @@ async function decodeBarcodeFromFile(file: File): Promise<string | null> {
   }
 }
 
+// ─── Google Lens-style AI food recognition via Gemini Vision ────────
+async function recognizeFoodWithGemini(dataUrl: string, apiKey: string): Promise<string | null> {
+  try {
+    const resized = await resizeDataUrl(dataUrl, 512);
+    const base64 = resized.split(",")[1];
+    const mimeType = resized.startsWith("data:image/png") ? "image/png" : "image/jpeg";
+
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{
+            parts: [
+              { inlineData: { mimeType, data: base64 } },
+              { text: "Identifiziere das Lebensmittel auf diesem Foto. Antworte NUR mit dem deutschen Namen, möglichst kurz (1-3 Wörter). Beispiele: 'Hühnerei', 'Apfel', 'Hähnchenbrust', 'Banane', 'Vollmilch'. Wenn kein Lebensmittel erkennbar ist, antworte genau mit dem Wort: unbekannt" }
+            ]
+          }],
+          generationConfig: { maxOutputTokens: 30, temperature: 0.1 }
+        })
+      }
+    );
+    if (!res.ok) return null;
+    const json = await res.json();
+    const text = (json?.candidates?.[0]?.content?.parts?.[0]?.text || "").trim();
+    if (!text || text.toLowerCase() === "unbekannt") return null;
+    return text;
+  } catch {
+    return null;
+  }
+}
+
+function pickImageFile(): Promise<File | null> {
+  return new Promise((resolve) => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = "image/*";
+    input.setAttribute("capture", "environment");
+    input.style.display = "none";
+
+    let resolved = false;
+    const finish = (file: File | null) => {
+      if (!resolved) { resolved = true; resolve(file); }
+      if (input.parentNode) document.body.removeChild(input);
+    };
+
+    input.onchange = (e: any) => finish((e.target as HTMLInputElement).files?.[0] || null);
+    window.addEventListener("focus", function onFocus() {
+      setTimeout(() => finish(null), 400);
+      window.removeEventListener("focus", onFocus);
+    }, { once: true });
+
+    document.body.appendChild(input);
+    input.click();
+  });
+}
+
 // ─── Page Component ─────────────────────────────────────────────────
 export default function ScannerScreen() {
   const [mode, setMode] = useState<"menu" | "scanning" | "result">("menu");
@@ -176,48 +234,70 @@ export default function ScannerScreen() {
   const [amount, setAmount] = useState("100");
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [error, setError] = useState("");
+  const [scanStatus, setScanStatus] = useState("");
 
   useEffect(() => { setLogs(loadLogs()); }, []);
 
-  // ── Photo-based barcode scanner ──
+  // ── Photo-based scanner: barcode → AI food recognition fallback ──
   const takePhoto = useCallback(async () => {
     setError("");
     setMode("scanning");
+    setScanStatus("📷 Foto wird geöffnet...");
+
     if (!IS_WEB) {
       setError("Foto-Scan ist aktuell nur in der Web-App verfügbar.");
-      setMode("menu");
+      setMode("menu"); setScanStatus("");
       return;
     }
 
     try {
-      const input = document.createElement("input");
-      input.type = "file";
-      input.accept = "image/*";
-      input.setAttribute("capture", "environment");
-      input.style.display = "none";
+      const file = await pickImageFile();
+      if (!file) { setMode("menu"); setScanStatus(""); return; }
 
-      const result = await new Promise<string | null>((resolve) => {
-        input.onchange = async (e: any) => {
-          const file = e.target?.files?.[0];
-          if (!file) { resolve(null); return; }
-          const code = await decodeBarcodeFromFile(file);
-          resolve(code);
-        };
-        document.body.appendChild(input);
-        input.click();
-        document.body.removeChild(input);
-      });
-
-      if (result) {
+      // Step 1: Try barcode
+      setScanStatus("🔍 Suche Barcode...");
+      const barcode = await decodeBarcodeFromFile(file);
+      if (barcode) {
+        setScanStatus("");
         setMode("result");
-        lookupProduct(result);
-      } else {
-        setError("Kein Barcode erkannt. Bitte Nummer manuell eingeben oder nach Namen suchen.");
-        setMode("menu");
+        lookupProduct(barcode);
+        return;
       }
-    } catch {
-      setError("Foto konnte nicht analysiert werden. Bitte Barcode manuell eingeben oder nach Namen suchen.");
+
+      // Step 2: AI food recognition (Google Lens style)
+      const apiKey = process.env.EXPO_PUBLIC_GEMINI_API_KEY || "";
+      if (!apiKey) {
+        setError("Kein Barcode erkannt. Tipp: Gemini API-Key in den Einstellungen hinterlegen für KI-Erkennung.");
+        setMode("menu"); setScanStatus("");
+        return;
+      }
+
+      setScanStatus("🤖 KI erkennt Lebensmittel...");
+      const dataUrl = await fileToDataUrl(file);
+      const foodName = await recognizeFoodWithGemini(dataUrl, apiKey);
+
+      if (!foodName) {
+        setError("Kein Lebensmittel erkannt. Bitte manuell eingeben oder nach Namen suchen.");
+        setMode("menu"); setScanStatus("");
+        return;
+      }
+
+      // Step 3: Search OpenFoodFacts with recognized name
+      setScanStatus(`✅ Erkannt: ${foodName} – suche in Datenbank...`);
+      setSearchQuery(foodName);
+      try {
+        const results = await searchFood(foodName);
+        setSearchResults(results);
+        if (results.length === 0) setError(`"${foodName}" nicht gefunden. Direkt suchen oder manuell eingeben.`);
+      } catch {
+        setError(`"${foodName}" erkannt, aber Suche fehlgeschlagen.`);
+      }
       setMode("menu");
+      setScanStatus("");
+
+    } catch {
+      setError("Foto konnte nicht analysiert werden.");
+      setMode("menu"); setScanStatus("");
     }
   }, []);
 
@@ -392,11 +472,20 @@ export default function ScannerScreen() {
       {/* Scanner / Live Camera mode */}
       {mode === "scanning" && (
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>🔴 Scanne...</Text>
+          <Text style={styles.cardTitle}>
+            {scanStatus || "🔴 Scanne..."}
+          </Text>
           <View id="camera-container" style={styles.camWrap} />
-          <TouchableOpacity style={styles.cancelBtn} onPress={stopLiveScan}>
-            <Text style={styles.cancelBtnText}>Abbrechen</Text>
-          </TouchableOpacity>
+          {scanStatus ? (
+            <View style={styles.aiStatusWrap}>
+              <ActivityIndicator color="#7c6aff" size="large" />
+              <Text style={styles.aiStatusText}>{scanStatus}</Text>
+            </View>
+          ) : (
+            <TouchableOpacity style={styles.cancelBtn} onPress={stopLiveScan}>
+              <Text style={styles.cancelBtnText}>Abbrechen</Text>
+            </TouchableOpacity>
+          )}
         </View>
       )}
 
@@ -404,8 +493,8 @@ export default function ScannerScreen() {
         <>
           {/* Photo Scanner Button (PRIMARY - works on all phones) */}
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>📸 Barcode scannen</Text>
-            <Text style={styles.cardSub}>Öffnet die Kamera zum Fotografieren des Barcodes.</Text>
+            <Text style={styles.cardTitle}>📸 Foto scannen</Text>
+            <Text style={styles.cardSub}>Barcode oder Lebensmittel fotografieren – KI erkennt es automatisch.</Text>
             <TouchableOpacity style={styles.scanBtn} onPress={takePhoto}>
               <Text style={styles.scanBtnIcon}>📷</Text>
               <Text style={styles.scanBtnText}>Foto machen</Text>
@@ -555,6 +644,8 @@ const styles = StyleSheet.create({
   camWrap: { width: "100%", height: 250, backgroundColor: "#000", borderRadius: 14, overflow: "hidden" },
   cancelBtn: { marginTop: 12, backgroundColor: "#ff4444", borderRadius: 12, padding: 14, alignItems: "center" },
   cancelBtnText: { color: "#fff", fontWeight: "700", fontSize: 15 },
+  aiStatusWrap: { marginTop: 20, alignItems: "center", gap: 12 },
+  aiStatusText: { color: "#aaa", fontSize: 14, textAlign: "center" },
 
   scanBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10, backgroundColor: "#7c6aff", borderRadius: 14, padding: 16 },
   scanBtnIcon: { fontSize: 24 },
