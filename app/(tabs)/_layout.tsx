@@ -28,6 +28,13 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
+        name="scanner"
+        options={{
+          title: "Scanner",
+          tabBarIcon: ({ focused }) => <TabDot active={focused} label="🍽" />,
+        }}
+      />
+      <Tabs.Screen
         name="training"
         options={{
           title: "Training",

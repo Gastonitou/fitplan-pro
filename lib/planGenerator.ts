@@ -51,76 +51,76 @@ function calcMacros(calories: number, goal: string) {
 
 const strengthExercises: Record<string, Exercise[]> = {
   brust: [
-    { name: "Bench Press", sets: 4, reps: "8-12", videoId: "rT7A7gr8yWY" },
-    { name: "Incline Dumbbell Press", sets: 3, reps: "10-12", videoId: "8iP1oB2oLVI" },
-    { name: "Cable Flys", sets: 3, reps: "12-15", videoId: "I6hNweR9PKA" },
-    { name: "Dips", sets: 3, reps: "8-12", videoId: "2z8g1Y1mrc8" },
+    { name: "Bench Press", sets: 4, reps: "8-12", videoId: "hWbUlkb5Ms4" },
+    { name: "Incline Dumbbell Press", sets: 3, reps: "10-12", videoId: "ou6s32mJgjU" },
+    { name: "Cable Flys", sets: 3, reps: "12-15", videoId: "I-Ue34qLxc4" },
+    { name: "Dips", sets: 3, reps: "8-12", videoId: "ncNo0kTzzYk" },
   ],
   rücken: [
-    { name: "Deadlift", sets: 4, reps: "6-8", videoId: "TQwD_pqVnT0" },
-    { name: "Pull-ups / Lat Pulldown", sets: 4, reps: "8-12", videoId: "eGo4I0r2PM8" },
-    { name: "Barbell Row", sets: 3, reps: "10-12", videoId: "FWj4YjDSX9A" },
-    { name: "Face Pulls", sets: 3, reps: "15-20", videoId: "VpNUKdUwiOY" },
+    { name: "Deadlift", sets: 4, reps: "6-8", videoId: "ZaTM37cfiDs" },
+    { name: "Pull-ups / Lat Pulldown", sets: 4, reps: "8-12", videoId: "SALxEARiMkw" },
+    { name: "Barbell Row", sets: 3, reps: "10-12", videoId: "Nqh7q3zDCoQ" },
+    { name: "Face Pulls", sets: 3, reps: "15-20", videoId: "IeOqdw9WI90" },
   ],
   beine: [
-    { name: "Barbell Squat", sets: 4, reps: "8-10", videoId: "VaS2gsUfDcU" },
-    { name: "Leg Press", sets: 3, reps: "10-12", videoId: "QCiJm-k8jTw" },
-    { name: "Leg Extension", sets: 3, reps: "12-15", videoId: "2C1lFXGEf_w" },
-    { name: "Leg Curl", sets: 3, reps: "12-15", videoId: "fXj0YAMXa24" },
-    { name: "Calf Raises", sets: 4, reps: "15-20", videoId: "-M4-G8p8v2w" },
+    { name: "Barbell Squat", sets: 4, reps: "8-10", videoId: "gcNh17Ckjgg" },
+    { name: "Leg Press", sets: 3, reps: "10-12", videoId: "p5dCqF7wWUw" },
+    { name: "Leg Extension", sets: 3, reps: "12-15", videoId: "uM86QE59Tgc" },
+    { name: "Leg Curl", sets: 3, reps: "12-15", videoId: "_lgE0gPvbik" },
+    { name: "Calf Raises", sets: 4, reps: "15-20", videoId: "wdOkFomQNp8" },
   ],
   schulter: [
-    { name: "Military Press", sets: 4, reps: "8-10", videoId: "2yjP4N1_3J8" },
-    { name: "Lateral Raises", sets: 3, reps: "12-15", videoId: "krP4eLqBcCk" },
-    { name: "Front Raises", sets: 3, reps: "12-15", videoId: "oeAMyEi-kmM" },
-    { name: "Reverse Flys", sets: 3, reps: "15-20", videoId: "_Lm7al5vx8E" },
+    { name: "Military Press", sets: 4, reps: "8-10", videoId: "_RlRDWO2jfg" },
+    { name: "Lateral Raises", sets: 3, reps: "12-15", videoId: "Kl3LEzQ5Zqs" },
+    { name: "Front Raises", sets: 3, reps: "12-15", videoId: "4HXCYnztyh8" },
+    { name: "Reverse Flys", sets: 3, reps: "15-20", videoId: "-TKqxK7-ehc" },
   ],
   arme: [
-    { name: "Barbell Curl", sets: 4, reps: "10-12", videoId: "kwG2ipFRgbs" },
-    { name: "Hammer Curls", sets: 3, reps: "12-15", videoId: "8FkMN4pBbQo" },
-    { name: "Tricep Pushdown", sets: 4, reps: "12-15", videoId: "2-LAM1K3MDM" },
-    { name: "Skull Crushers", sets: 3, reps: "10-12", videoId: "wjPUxNmqK5M" },
+    { name: "Barbell Curl", sets: 4, reps: "10-12", videoId: "QZEqB6wUPxQ" },
+    { name: "Hammer Curls", sets: 3, reps: "12-15", videoId: "BRVDS6HVR9Q" },
+    { name: "Tricep Pushdown", sets: 4, reps: "12-15", videoId: "-zLyUAo1gMw" },
+    { name: "Skull Crushers", sets: 3, reps: "10-12", videoId: "zR9gty7LUxE" },
   ],
 };
 
 const pushExercises: Exercise[] = [
-  { name: "Bench Press", sets: 4, reps: "8-12", videoId: "rT7A7gr8yWY" },
-  { name: "Incline Dumbbell Press", sets: 3, reps: "10-12", videoId: "8iP1oB2oLVI" },
-  { name: "Lateral Raises", sets: 3, reps: "12-15", videoId: "krP4eLqBcCk" },
-  { name: "Tricep Pushdown", sets: 3, reps: "12-15", videoId: "2-LAM1K3MDM" },
-  { name: "Cable Flys", sets: 3, reps: "12-15", videoId: "I6hNweR9PKA" },
+  { name: "Bench Press", sets: 4, reps: "8-12", videoId: "hWbUlkb5Ms4" },
+  { name: "Incline Dumbbell Press", sets: 3, reps: "10-12", videoId: "ou6s32mJgjU" },
+  { name: "Lateral Raises", sets: 3, reps: "12-15", videoId: "Kl3LEzQ5Zqs" },
+  { name: "Tricep Pushdown", sets: 3, reps: "12-15", videoId: "-zLyUAo1gMw" },
+  { name: "Cable Flys", sets: 3, reps: "12-15", videoId: "I-Ue34qLxc4" },
 ];
 
 const pullExercises: Exercise[] = [
-  { name: "Deadlift", sets: 4, reps: "6-8", videoId: "TQwD_pqVnT0" },
-  { name: "Pull-ups / Lat Pulldown", sets: 4, reps: "8-12", videoId: "eGo4I0r2PM8" },
-  { name: "Barbell Row", sets: 3, reps: "10-12", videoId: "FWj4YjDSX9A" },
-  { name: "Face Pulls", sets: 3, reps: "15-20", videoId: "VpNUKdUwiOY" },
-  { name: "Barbell Curl", sets: 3, reps: "10-12", videoId: "kwG2ipFRgbs" },
+  { name: "Deadlift", sets: 4, reps: "6-8", videoId: "ZaTM37cfiDs" },
+  { name: "Pull-ups / Lat Pulldown", sets: 4, reps: "8-12", videoId: "SALxEARiMkw" },
+  { name: "Barbell Row", sets: 3, reps: "10-12", videoId: "Nqh7q3zDCoQ" },
+  { name: "Face Pulls", sets: 3, reps: "15-20", videoId: "IeOqdw9WI90" },
+  { name: "Barbell Curl", sets: 3, reps: "10-12", videoId: "QZEqB6wUPxQ" },
 ];
 
 const legExercises: Exercise[] = [
-  { name: "Barbell Squat", sets: 4, reps: "8-10", videoId: "VaS2gsUfDcU" },
-  { name: "Leg Press", sets: 3, reps: "10-12", videoId: "QCiJm-k8jTw" },
-  { name: "Leg Extension", sets: 3, reps: "12-15", videoId: "2C1lFXGEf_w" },
-  { name: "Leg Curl", sets: 3, reps: "12-15", videoId: "fXj0YAMXa24" },
-  { name: "Calf Raises", sets: 4, reps: "15-20", videoId: "-M4-G8p8v2w" },
+  { name: "Barbell Squat", sets: 4, reps: "8-10", videoId: "gcNh17Ckjgg" },
+  { name: "Leg Press", sets: 3, reps: "10-12", videoId: "p5dCqF7wWUw" },
+  { name: "Leg Extension", sets: 3, reps: "12-15", videoId: "uM86QE59Tgc" },
+  { name: "Leg Curl", sets: 3, reps: "12-15", videoId: "_lgE0gPvbik" },
+  { name: "Calf Raises", sets: 4, reps: "15-20", videoId: "wdOkFomQNp8" },
 ];
 
 const enduranceExercises: Exercise[] = [
-  { name: "Bodyweight Squats", sets: 3, reps: "20-25", videoId: "mMN4lI8qLB4" },
-  { name: "Push-ups", sets: 3, reps: "15-20", videoId: "IODxDxX7oi4" },
-  { name: "Band Rows", sets: 3, reps: "15-20", videoId: "QjW-KB2N5ps" },
-  { name: "Lunges", sets: 3, reps: "12-15 per leg", videoId: "L8fv0d8FmZ0" },
-  { name: "Plank", sets: 3, reps: "45-60 sec", videoId: "BQu25B7I7Q4" },
+  { name: "Bodyweight Squats", sets: 3, reps: "20-25", videoId: "eFEVKmp3M4g" },
+  { name: "Push-ups", sets: 3, reps: "15-20", videoId: "_YrJc-kTYA0" },
+  { name: "Band Rows", sets: 3, reps: "15-20", videoId: "hqFwwv6dFGY" },
+  { name: "Lunges", sets: 3, reps: "12-15 per leg", videoId: "1cS-6KsJW9g" },
+  { name: "Plank", sets: 3, reps: "45-60 sec", videoId: "v25dawSzRTM" },
 ];
 
 const recoveryExercise: Exercise[] = [
-  { name: "Stretching & Mobility", sets: 1, reps: "15 min", videoId: "KjxV3XqVjXE" },
+  { name: "Stretching & Mobility", sets: 1, reps: "15 min", videoId: "t2jel6q1GRk" },
 ];
 
 const cardioExercise: Exercise[] = [
-  { name: "Walk / Light Jog", sets: 1, reps: "20-30 min", videoId: "V_0E7J5SeYQ" },
+  { name: "Walk / Light Jog", sets: 1, reps: "20-30 min", videoId: "A0Ivwa8RPDg" },
 ];
 
 function generateTrainingPlan(profile: Profile): TrainingDay[] {

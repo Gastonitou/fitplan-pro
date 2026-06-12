@@ -1,11 +1,13 @@
 import { useEffect, useState, useCallback } from "react";
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator, RefreshControl, TouchableOpacity, Linking, Image } from "react-native";
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator, RefreshControl, TouchableOpacity, Linking } from "react-native";
 import { supabase } from "../../lib/supabase";
 import { Profile, TrainingDay } from "../../lib/types";
 import { generateTrainingPlan } from "../../lib/planGenerator";
 import ProfileSetup from "../../components/ProfileSetup";
+import { useAuth } from "../../lib/AuthContext";
 
 export default function TrainingScreen() {
+  const { user } = useAuth();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [showSetup, setShowSetup] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -13,7 +15,6 @@ export default function TrainingScreen() {
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
 
   const loadProfile = useCallback(async () => {
-    const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
     const { data } = await supabase.from("profiles").select("*").eq("id", user.id).single();
     if (data) {
@@ -35,7 +36,13 @@ export default function TrainingScreen() {
   };
 
   const openVideo = (videoId: string) => {
-    Linking.openURL(`https://www.youtube.com/watch?v=${videoId}`);
+    const url = `https://www.youtube.com/watch?v=${videoId}`;
+    // Web: window.open, Mobile: Linking
+    if (typeof window !== "undefined") {
+      window.open(url, "_blank", "noopener,noreferrer");
+    } else {
+      Linking.openURL(url);
+    }
   };
 
   if (loading) {

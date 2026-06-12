@@ -1,36 +1,25 @@
 import { createClient } from "@supabase/supabase-js";
-import * as SecureStore from "expo-secure-store";
 import { Platform } from "react-native";
 
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || "";
 const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || "";
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  console.warn(
-    "⚠️ Supabase-Umgebungsvariablen fehlen! " +
-    "Erstelle eine .env-Datei mit EXPO_PUBLIC_SUPABASE_URL und EXPO_PUBLIC_SUPABASE_ANON_KEY"
-  );
-}
-
-// Use SecureStore for web-like storage on native
-const ExpoSecureStoreAdapter = {
-  getItem: async (key: string) => {
-    if (Platform.OS === "web") return localStorage.getItem(key);
-    return SecureStore.getItemAsync(key);
+// Simple sync storage for web, falls back for native
+const webStorage = {
+  getItem: (key: string): string | null => {
+    try { return localStorage.getItem(key); } catch { return null; }
   },
-  setItem: async (key: string, value: string) => {
-    if (Platform.OS === "web") localStorage.setItem(key, value);
-    else await SecureStore.setItemAsync(key, value);
+  setItem: (key: string, value: string): void => {
+    try { localStorage.setItem(key, value); } catch {}
   },
-  removeItem: async (key: string) => {
-    if (Platform.OS === "web") localStorage.removeItem(key);
-    else await SecureStore.deleteItemAsync(key);
+  removeItem: (key: string): void => {
+    try { localStorage.removeItem(key); } catch {}
   },
 };
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
-    storage: ExpoSecureStoreAdapter,
+    storage: Platform.OS === "web" ? webStorage : undefined,
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: false,

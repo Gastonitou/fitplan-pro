@@ -1,14 +1,17 @@
-import { useEffect, useState, useCallback } from "react";
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, ActivityIndicator, ImageBackground, Dimensions } from "react-native";
+import { useEffect, useState, useCallback, useRef } from "react";
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, ActivityIndicator, ImageBackground, Dimensions, Alert, Animated, Easing } from "react-native";
+import { router } from "expo-router";
 import { supabase } from "../../lib/supabase";
 import { Profile } from "../../lib/types";
 import ProfileSetup from "../../components/ProfileSetup";
 import WeightTracker from "../../components/WeightTracker";
 import { calcBMR, calcTDEE, calcTargetCalories, calcMacros } from "../../lib/planGenerator";
+import { useAuth } from "../../lib/AuthContext";
 
 const { width } = Dimensions.get("window");
 
 export default function DashboardScreen() {
+  const { user } = useAuth();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [showSetup, setShowSetup] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -17,11 +20,12 @@ export default function DashboardScreen() {
     const days = ["Sonntag", "Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag"];
     return days[new Date().getDay()];
   });
+  const heroAnim = useRef(new Animated.Value(0)).current;
+  const contentAnim = useRef(new Animated.Value(0)).current;
 
   const loadProfile = useCallback(async () => {
-    const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
-      console.log("Dashboard: No user session");
+      console.log("Dashboard: No user in context");
       return;
     }
 
@@ -46,6 +50,24 @@ export default function DashboardScreen() {
     loadProfile().finally(() => setLoading(false));
   }, [loadProfile]);
 
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(heroAnim, {
+        toValue: 1,
+        duration: 650,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+      Animated.timing(contentAnim, {
+        toValue: 1,
+        duration: 760,
+        delay: 120,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [contentAnim, heroAnim]);
+
   const onRefresh = async () => {
     setRefreshing(true);
     await loadProfile();
@@ -68,108 +90,174 @@ export default function DashboardScreen() {
   const tdee = profile ? calcTDEE(bmr, profile.activity_level) : 0;
   const targetCal = profile ? calcTargetCalories(tdee, profile.goal) : 0;
   const macros = profile ? calcMacros(targetCal, profile.goal) : { calories: 0, protein: 0, carbs: 0, fat: 0 };
+  const backgroundImage = "https://images.unsplash.com/photo-1583454110551-21f2fa2afe61?auto=format&fit=crop&w=1600&q=80";
+  const proteinProgress = targetCal > 0 ? Math.min(1, (macros.protein * 4) / targetCal) : 0;
+  const carbsProgress = targetCal > 0 ? Math.min(1, (macros.carbs * 4) / targetCal) : 0;
+  const fatProgress = targetCal > 0 ? Math.min(1, (macros.fat * 9) / targetCal) : 0;
 
   return (
-    <View style={styles.container}>
-      <ScrollView
-        contentContainerStyle={styles.content}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#6c63ff" />}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Hero Section with Background */}
-        <ImageBackground
-          source={{ uri: "https://images.unsplash.com/photo-1517836357463-d25dfeac3438?w=800&q=80" }}
-          style={styles.hero}
-          imageStyle={{ opacity: 0.3 }}
+    <ImageBackground source={{ uri: backgroundImage }} style={styles.background}>
+      <View style={styles.backgroundOverlay}>
+        <ScrollView
+          contentContainerStyle={styles.content}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#6c63ff" />}
+          showsVerticalScrollIndicator={false}
         >
-          <View style={styles.heroOverlay}>
-            <Text style={styles.greeting}>Welcome, {profile?.name}</Text>
-            <Text style={styles.date}>{today}</Text>
-            <View style={styles.heroStats}>
-              <View style={styles.heroStat}>
-                <Text style={styles.heroStatValue}>{profile?.weight} kg</Text>
-                <Text style={styles.heroStatLabel}>Weight</Text>
+          {/* Hero Section with Background */}
+          <Animated.View
+            style={{
+              opacity: heroAnim,
+              transform: [
+                {
+                  translateY: heroAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [26, 0],
+                  }),
+                },
+              ],
+            }}
+          >
+            <ImageBackground
+              source={{ uri: "https://images.unsplash.com/photo-1517838277536-f5f99be501cd?auto=format&fit=crop&w=1400&q=80" }}
+              style={styles.hero}
+            >
+              <View style={styles.heroOverlay}>
+                <Text style={styles.greeting}>Welcome, {profile?.name}</Text>
+                <Text style={styles.date}>{today}</Text>
+                <View style={styles.heroStats}>
+                  <View style={styles.heroStat}>
+                    <Text style={styles.heroStatValue}>{profile?.weight} kg</Text>
+                    <Text style={styles.heroStatLabel}>Weight</Text>
+                  </View>
+                  <View style={styles.heroDivider} />
+                  <View style={styles.heroStat}>
+                    <Text style={styles.heroStatValue}>{profile?.height} cm</Text>
+                    <Text style={styles.heroStatLabel}>Height</Text>
+                  </View>
+                  <View style={styles.heroDivider} />
+                  <View style={styles.heroStat}>
+                    <Text style={styles.heroStatValue}>{profile?.age}</Text>
+                    <Text style={styles.heroStatLabel}>Age</Text>
+                  </View>
+                </View>
               </View>
-              <View style={styles.heroDivider} />
-              <View style={styles.heroStat}>
-                <Text style={styles.heroStatValue}>{profile?.height} cm</Text>
-                <Text style={styles.heroStatLabel}>Height</Text>
+            </ImageBackground>
+          </Animated.View>
+
+          <Animated.View
+            style={{
+              opacity: contentAnim,
+              transform: [
+                {
+                  translateY: contentAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [30, 0],
+                  }),
+                },
+              ],
+            }}
+          >
+            {/* Goal Card */}
+            <View style={styles.goalCard}>
+              <Text style={styles.goalLabel}>GOAL</Text>
+              <Text style={styles.goalValue}>
+                {profile?.goal === "abnehmen" ? "Weight Loss" : profile?.goal === "muskelaufbau" ? "Muscle Building" : "Maintain"}
+              </Text>
+              <Text style={styles.goalSub}>TDEE {tdee} kcal - Target {targetCal} kcal</Text>
+            </View>
+
+            {/* Macro Targets */}
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Daily Targets</Text>
+              <View style={styles.macroGrid}>
+                <View style={[styles.macroCard, { borderLeftColor: "#ff6b6b" }]}>
+                  <View style={styles.macroTopRow}>
+                    <Text style={styles.macroValue}>{macros.protein}g</Text>
+                    <Text style={styles.macroLabel}>Protein</Text>
+                  </View>
+                  <View style={styles.progressTrack}>
+                    <View style={[styles.progressFill, { width: `${Math.max(8, proteinProgress * 100)}%`, backgroundColor: "#ff6b6b" }]} />
+                  </View>
+                </View>
+                <View style={[styles.macroCard, { borderLeftColor: "#ffd93d" }]}>
+                  <View style={styles.macroTopRow}>
+                    <Text style={styles.macroValue}>{macros.carbs}g</Text>
+                    <Text style={styles.macroLabel}>Carbs</Text>
+                  </View>
+                  <View style={styles.progressTrack}>
+                    <View style={[styles.progressFill, { width: `${Math.max(8, carbsProgress * 100)}%`, backgroundColor: "#ffd93d" }]} />
+                  </View>
+                </View>
+                <View style={[styles.macroCard, { borderLeftColor: "#6bcb77" }]}>
+                  <View style={styles.macroTopRow}>
+                    <Text style={styles.macroValue}>{macros.fat}g</Text>
+                    <Text style={styles.macroLabel}>Fats</Text>
+                  </View>
+                  <View style={styles.progressTrack}>
+                    <View style={[styles.progressFill, { width: `${Math.max(8, fatProgress * 100)}%`, backgroundColor: "#6bcb77" }]} />
+                  </View>
+                </View>
               </View>
-              <View style={styles.heroDivider} />
-              <View style={styles.heroStat}>
-                <Text style={styles.heroStatValue}>{profile?.age}</Text>
-                <Text style={styles.heroStatLabel}>Age</Text>
-              </View>
+              <Text style={styles.calories}>{targetCal} kcal</Text>
             </View>
-          </View>
-        </ImageBackground>
 
-        {/* Goal Card */}
-        <View style={styles.goalCard}>
-          <Text style={styles.goalLabel}>GOAL</Text>
-          <Text style={styles.goalValue}>
-            {profile?.goal === "abnehmen" ? "Weight Loss" : profile?.goal === "muskelaufbau" ? "Muscle Building" : "Maintain"}
-          </Text>
-          <Text style={styles.goalSub}>TDEE {tdee} kcal — Target {targetCal} kcal</Text>
-        </View>
+            {/* Weight Tracker */}
+            <WeightTracker />
 
-        {/* Macro Targets */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Daily Targets</Text>
-          <View style={styles.macroGrid}>
-            <View style={[styles.macroCard, { borderLeftColor: "#ff6b6b" }]}>
-              <Text style={styles.macroValue}>{macros.protein}g</Text>
-              <Text style={styles.macroLabel}>Protein</Text>
+            {/* Navigation Cards */}
+            <View style={styles.navRow}>
+              <TouchableOpacity
+                style={styles.navCard}
+                activeOpacity={0.85}
+                onPress={() => router.push("/(tabs)/training")}
+              >
+                <Text style={styles.navTitle}>Training</Text>
+                <Text style={styles.navSub}>View your plan</Text>
+                <Text style={styles.navHint}>Open now</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.navCard}
+                activeOpacity={0.85}
+                onPress={() => router.push("/(tabs)/nutrition")}
+              >
+                <Text style={styles.navTitle}>Nutrition</Text>
+                <Text style={styles.navSub}>Meal plan</Text>
+                <Text style={styles.navHint}>Open now</Text>
+              </TouchableOpacity>
             </View>
-            <View style={[styles.macroCard, { borderLeftColor: "#ffd93d" }]}>
-              <Text style={styles.macroValue}>{macros.carbs}g</Text>
-              <Text style={styles.macroLabel}>Carbs</Text>
-            </View>
-            <View style={[styles.macroCard, { borderLeftColor: "#6bcb77" }]}>
-              <Text style={styles.macroValue}>{macros.fat}g</Text>
-              <Text style={styles.macroLabel}>Fats</Text>
-            </View>
-          </View>
-          <Text style={styles.calories}>{targetCal} kcal</Text>
-        </View>
-
-        {/* Weight Tracker */}
-        <WeightTracker />
-
-        {/* Navigation Cards */}
-        <View style={styles.navRow}>
-          <TouchableOpacity style={styles.navCard} activeOpacity={0.8}>
-            <Text style={styles.navTitle}>Training</Text>
-            <Text style={styles.navSub}>View your plan</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.navCard} activeOpacity={0.8}>
-            <Text style={styles.navTitle}>Nutrition</Text>
-            <Text style={styles.navSub}>Meal plan</Text>
-          </TouchableOpacity>
-        </View>
-      </ScrollView>
-    </View>
+          </Animated.View>
+        </ScrollView>
+      </View>
+    </ImageBackground>
   );
 }
 
 const styles = StyleSheet.create({
+  background: {
+    flex: 1,
+    backgroundColor: "#07070d",
+  },
+  backgroundOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(4,5,10,0.82)",
+  },
   container: {
     flex: 1,
-    backgroundColor: "#08080f",
+    backgroundColor: "transparent",
   },
   content: {
-    paddingBottom: 100,
+    paddingBottom: 110,
   },
   hero: {
     width: width,
-    height: 280,
+    height: 300,
   },
   heroOverlay: {
     flex: 1,
-    backgroundColor: "rgba(8,8,15,0.6)",
+    backgroundColor: "rgba(8,8,15,0.52)",
     justifyContent: "flex-end",
     padding: 24,
-    paddingTop: 60,
+    paddingTop: 72,
   },
   greeting: {
     fontSize: 28,
@@ -187,9 +275,11 @@ const styles = StyleSheet.create({
   heroStats: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(255,255,255,0.06)",
-    borderRadius: 12,
+    backgroundColor: "rgba(10, 10, 18, 0.58)",
+    borderRadius: 14,
     padding: 16,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.12)",
   },
   heroStat: {
     flex: 1,
@@ -213,13 +303,13 @@ const styles = StyleSheet.create({
     backgroundColor: "#2a2a4e",
   },
   goalCard: {
-    backgroundColor: "#1a1a2e",
+    backgroundColor: "rgba(18, 22, 34, 0.82)",
     marginHorizontal: 16,
     marginTop: -40,
     borderRadius: 16,
     padding: 20,
     borderWidth: 1,
-    borderColor: "#2a2a4e",
+    borderColor: "rgba(116, 129, 255, 0.38)",
   },
   goalLabel: {
     fontSize: 11,
@@ -254,13 +344,28 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   macroCard: {
-    backgroundColor: "#1a1a2e",
+    backgroundColor: "rgba(16, 20, 31, 0.86)",
     borderRadius: 12,
     padding: 16,
     borderLeftWidth: 3,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.08)",
+    gap: 10,
+  },
+  macroTopRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
+  },
+  progressTrack: {
+    height: 6,
+    borderRadius: 999,
+    backgroundColor: "rgba(255,255,255,0.08)",
+    overflow: "hidden",
+  },
+  progressFill: {
+    height: "100%",
+    borderRadius: 999,
   },
   macroValue: {
     fontSize: 18,
@@ -286,11 +391,12 @@ const styles = StyleSheet.create({
   },
   navCard: {
     flex: 1,
-    backgroundColor: "#1a1a2e",
+    backgroundColor: "rgba(16, 20, 31, 0.86)",
     borderRadius: 12,
     padding: 20,
     borderWidth: 1,
-    borderColor: "#2a2a4e",
+    borderColor: "rgba(255,255,255,0.08)",
+    gap: 4,
   },
   navTitle: {
     fontSize: 16,
@@ -301,5 +407,13 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: "#666",
     marginTop: 4,
+  },
+  navHint: {
+    marginTop: 10,
+    fontSize: 11,
+    color: "#9da6ff",
+    textTransform: "uppercase",
+    letterSpacing: 0.8,
+    fontWeight: "700",
   },
 });

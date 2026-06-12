@@ -85,3 +85,6 @@ CREATE POLICY "Users can view own weight logs"
 
 CREATE POLICY "Users can insert own weight logs"
   ON weight_logs FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can update own weight logs"
+  ON weight_logs FOR UPDATE USING (auth.uid() = user_id);

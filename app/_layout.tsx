@@ -1,9 +1,10 @@
-import { useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useState } from "react";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { View, ActivityIndicator } from "react-native";
 import { supabase } from "../lib/supabase";
-import { Session } from "@supabase/supabase-js";
+import { Session, User } from "@supabase/supabase-js";
+import { AuthContext } from "../lib/AuthContext";
 
 export default function RootLayout() {
   const [session, setSession] = useState<Session | null>(null);
@@ -31,7 +32,7 @@ export default function RootLayout() {
   }
 
   return (
-    <>
+    <AuthContext.Provider value={{ user: session?.user ?? null, session }}>
       <StatusBar style="light" />
       <Stack screenOptions={{ headerShown: false }}>
         {session ? (
@@ -40,6 +41,6 @@ export default function RootLayout() {
           <Stack.Screen name="(auth)" options={{ headerShown: false }} />
         )}
       </Stack>
-    </>
+    </AuthContext.Provider>
   );
 }

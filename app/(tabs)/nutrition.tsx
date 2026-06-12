@@ -4,8 +4,10 @@ import { supabase } from "../../lib/supabase";
 import { Profile, NutritionDay } from "../../lib/types";
 import { generateNutritionPlan } from "../../lib/planGenerator";
 import ProfileSetup from "../../components/ProfileSetup";
+import { useAuth } from "../../lib/AuthContext";
 
 export default function NutritionScreen() {
+  const { user } = useAuth();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [showSetup, setShowSetup] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -13,7 +15,6 @@ export default function NutritionScreen() {
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
 
   const loadProfile = useCallback(async () => {
-    const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
     const { data } = await supabase.from("profiles").select("*").eq("id", user.id).single();
     if (data) {

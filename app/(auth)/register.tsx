@@ -2,6 +2,7 @@ import { useState } from "react";
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, ImageBackground } from "react-native";
 import { Link, router } from "expo-router";
 import { supabase } from "../../lib/supabase";
+import { getApiBase } from "../../lib/config";
 
 const IS_WEB = Platform.OS === "web";
 
@@ -30,36 +31,44 @@ export default function RegisterScreen() {
         return;
       }
       setLoading(true);
-      
-      // Use registration proxy (auto-confirms email, no rate limit)
-      const res = await fetch("https://hmiuo-2a01-599-30d-baaa-3c0-e053-b671-53dc.run.pinggy-free.link/api/register", {
+      const normalizedEmail = email.trim().toLowerCase();
+
+      // Direct registration via proxy API (no email verification needed)
+      const apiBase = getApiBase();
+      const res = await fetch(apiBase + "/api/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password, name }),
+        body: JSON.stringify({ email: normalizedEmail, password, name: name.trim() }),
       });
-      const result = await res.json();
+
+      if (!res.ok) {
+        let errMsg = "Registrierung fehlgeschlagen";
+        try { const d = await res.json(); errMsg = d.error || errMsg; } catch {}
+        setLoading(false);
+        showMsg("Fehler", errMsg);
+        return;
+      }
+
+      const data = await res.json();
       setLoading(false);
-      
-      if (result.error) {
-        showMsg("Fehler", result.error);
-      } else if (result.session) {
-        // Set the session in the Supabase client
-        await supabase.auth.setSession({
-          access_token: result.session.access_token,
-          refresh_token: result.session.refresh_token,
-        });
-        showMsg("Erfolg", "Account erstellt!");
-        if (IS_WEB) {
-          window.location.href = "/";
-        } else {
-          router.replace("/(tabs)");
+
+      if (data.success) {
+        showMsg("Erfolg", "Account erstellt und eingeloggt!");
+        if (data.session) {
+          await supabase.auth.setSession({
+            access_token: data.session.access_token,
+            refresh_token: data.session.refresh_token,
+          });
+          // Kurz warten damit Auth-Context den Session-Update sieht
+          await new Promise(r => setTimeout(r, 300));
         }
+        router.replace("/(tabs)");
       } else {
-        showMsg("Fehler", "Keine Session erhalten. Bitte nochmal versuchen.");
+        showMsg("Fehler", "Registrierung fehlgeschlagen. Bitte erneut versuchen.");
       }
     } catch (err: any) {
       setLoading(false);
-      showMsg("Fehler", err?.message || "Netzwerkfehler. Proxy erreichbar?");
+      showMsg("Fehler", err?.message || "Netzwerkfehler. Bitte erneut versuchen.");
     }
   }
 

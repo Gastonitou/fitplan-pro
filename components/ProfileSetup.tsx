@@ -2,12 +2,16 @@ import { useState } from "react";
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, ScrollView, KeyboardAvoidingView, Platform, ImageBackground } from "react-native";
 import { supabase } from "../lib/supabase";
 import { Goal, ActivityLevel, Gender } from "../lib/types";
+import { useAuth } from "../lib/AuthContext";
+
+const IS_WEB = Platform.OS === "web";
 
 interface Props {
   onComplete: () => void;
 }
 
 export default function ProfileSetup({ onComplete }: Props) {
+  const { user } = useAuth();
   const [name, setName] = useState("");
   const [age, setAge] = useState("");
   const [weight, setWeight] = useState("");
@@ -17,25 +21,32 @@ export default function ProfileSetup({ onComplete }: Props) {
   const [activity, setActivity] = useState<ActivityLevel>("moderat");
   const [loading, setLoading] = useState(false);
 
+  function showMsg(title: string, msg: string) {
+    if (IS_WEB) {
+      window.alert(`${title}\n\n${msg}`);
+    } else {
+      Alert.alert(title, msg);
+    }
+  }
+
   async function handleSave() {
     if (!name || !age || !weight || !height) {
-      Alert.alert("Error", "Please fill all fields");
+      showMsg("Error", "Please fill all fields");
       return;
     }
     const ageNum = parseInt(age);
     const weightNum = parseFloat(weight);
     const heightNum = parseFloat(height);
     if (isNaN(ageNum) || isNaN(weightNum) || isNaN(heightNum)) {
-      Alert.alert("Error", "Please enter valid numbers");
+      showMsg("Error", "Please enter valid numbers");
       return;
     }
 
     setLoading(true);
-    const { data: { user } } = await supabase.auth.getUser();
     if (!user) { 
-      setLoading(false); 
-      console.error("Save failed: no user session");
-      Alert.alert("Nicht eingeloggt", "Bitte log dich neu ein und versuch es nochmal");
+      setLoading(false);
+      console.error("Save failed: no user in context");
+      showMsg("Nicht eingeloggt", "Bitte log dich neu ein und versuch es nochmal");
       return; 
     }
     
@@ -77,18 +88,20 @@ export default function ProfileSetup({ onComplete }: Props) {
     setLoading(false);
     if (error) {
       console.error("Profile save error:", error);
-      Alert.alert("Fehler beim Speichern", 
+      showMsg("Fehler beim Speichern", 
         "Fehler: " + error.message + "\n\nCode: " + error.code + 
         "\n\nDetails: " + (error.details || "keine") +
         "\n\nBitte Gaston Screenshot von dieser Meldung schicken");
     } else {
       console.log("Profile saved successfully!");
+      showMsg("Erfolg", "Deine Daten wurden gespeichert.");
       onComplete();
     }
   }
 
   const pickerBtn = (label: string, selected: boolean, onPress: () => void) => (
-    <TouchableOpacity key={label} style={[styles.pickerBtn, selected && styles.pickerBtnActive]} onPress={onPress}>
+    <TouchableOpacity key={label} style={[styles.pickerBtn, selected && styles.pickerBtnActive]} onPress={onPress} activeOpacity={0.7}>
+      <View style={[styles.pickerIndicator, selected && styles.pickerIndicatorActive]} />
       <Text style={[styles.pickerText, selected && styles.pickerTextActive]}>{label}</Text>
     </TouchableOpacity>
   );
@@ -156,11 +169,33 @@ const styles = StyleSheet.create({
   input: { backgroundColor: "rgba(255,255,255,0.06)", borderRadius: 12, padding: 16, fontSize: 16, color: "#fff", borderWidth: 1, borderColor: "#2a2a4e" },
   row: { flexDirection: "row", gap: 12 },
   half: { flex: 1 },
-  pickerRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  pickerBtn: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 10, backgroundColor: "rgba(255,255,255,0.06)", borderWidth: 1, borderColor: "#2a2a4e" },
-  pickerBtnActive: { backgroundColor: "#6c63ff", borderColor: "#6c63ff" },
-  pickerText: { color: "#888", fontSize: 13, fontWeight: "500" },
-  pickerTextActive: { color: "#fff" },
+  pickerRow: { flexDirection: "column", gap: 8 },
+  pickerBtn: {
+    flexDirection: "row", alignItems: "center", gap: 10,
+    paddingHorizontal: 20, paddingVertical: 14,
+    borderRadius: 14,
+    backgroundColor: "rgba(255,255,255,0.04)",
+    borderWidth: 1.5, borderColor: "#2a2a4e",
+  },
+  pickerBtnActive: {
+    backgroundColor: "rgba(108,99,255,0.15)",
+    borderColor: "#6c63ff",
+    shadowColor: "#6c63ff", shadowOffset: {width:0,height:2},
+    shadowOpacity: 0.3, shadowRadius: 6, elevation: 4,
+  },
+  pickerIndicator: {
+    width: 8, height: 8, borderRadius: 4,
+    backgroundColor: "transparent",
+    borderWidth: 2, borderColor: "#444",
+  },
+  pickerIndicatorActive: {
+    backgroundColor: "#6c63ff",
+    borderColor: "#6c63ff",
+    shadowColor: "#6c63ff", shadowOffset: {width:0,height:0},
+    shadowOpacity: 0.8, shadowRadius: 4, elevation: 2,
+  },
+  pickerText: { color: "#666", fontSize: 13, fontWeight: "600" },
+  pickerTextActive: { color: "#fff", fontWeight: "700" },
   button: { backgroundColor: "#6c63ff", borderRadius: 12, padding: 16, alignItems: "center", marginTop: 16 },
   buttonText: { color: "#fff", fontSize: 16, fontWeight: "600" },
 });

@@ -10,20 +10,24 @@ import {
 } from "react-native";
 import { supabase } from "../lib/supabase";
 import { WeightLog } from "../lib/types";
+import { useAuth } from "../lib/AuthContext";
 
 interface Props {
   onLog?: () => void;
 }
 
 export default function WeightTracker({ onLog }: Props) {
+  const { user } = useAuth();
   const [weightLogs, setWeightLogs] = useState<WeightLog[]>([]);
   const [weightInput, setWeightInput] = useState("");
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const loadLogs = useCallback(async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    if (!user) {
+      setLoading(false);
+      return;
+    }
     const { data } = await supabase
       .from("weight_logs")
       .select("*")
@@ -45,16 +49,27 @@ export default function WeightTracker({ onLog }: Props) {
       return;
     }
     setSaving(true);
-    const { data: { user } } = await supabase.auth.getUser();
     if (!user) { setSaving(false); return; }
 
     const today = new Date().toISOString().split("T")[0];
     const existing = weightLogs.find((l) => l.date === today);
+    let error = null as any;
+
     if (existing) {
-      await supabase.from("weight_logs").update({ weight: w }).eq("id", existing.id);
+      const result = await supabase.from("weight_logs").update({ weight: w }).eq("id", existing.id);
+      error = result.error;
     } else {
-      await supabase.from("weight_logs").insert({ user_id: user.id, date: today, weight: w });
+      const result = await supabase.from("weight_logs").insert({ user_id: user.id, date: today, weight: w });
+      error = result.error;
     }
+
+    if (error) {
+      setSaving(false);
+      console.error("Weight log save error:", error);
+      Alert.alert("Speichern fehlgeschlagen", error.message || "Unbekannter Fehler");
+      return;
+    }
+
     setSaving(false);
     setWeightInput("");
     await loadLogs();

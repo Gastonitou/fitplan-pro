@@ -2,24 +2,63 @@ import { useState } from "react";
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, KeyboardAvoidingView, Platform, ImageBackground } from "react-native";
 import { Link, router } from "expo-router";
 import { supabase } from "../../lib/supabase";
+import { getApiBase } from "../../lib/config";
+
+const IS_WEB = Platform.OS === "web";
 
 export default function LoginScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
+  function showMsg(title: string, msg: string) {
+    if (IS_WEB) {
+      window.alert(`${title}\n\n${msg}`);
+    } else {
+      Alert.alert(title, msg);
+    }
+  }
+
   async function handleLogin() {
     if (!email || !password) {
-      Alert.alert("Error", "Please enter email and password");
+      showMsg("Error", "Please enter email and password");
       return;
     }
+
     setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    setLoading(false);
-    if (error) {
-      Alert.alert("Login failed", error.message);
-    } else {
+    const normalizedEmail = email.trim().toLowerCase();
+    const apiBase = getApiBase();
+
+    try {
+      const res = await fetch(apiBase + "/api/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: normalizedEmail, password }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok || !data.success) {
+        setLoading(false);
+        showMsg("Login failed", data.error || "Fehler beim Login");
+        return;
+      }
+
+      // Session im Supabase Client setzen
+      if (data.session) {
+        await supabase.auth.setSession({
+          access_token: data.session.access_token,
+          refresh_token: data.session.refresh_token,
+        });
+        // Kurz warten damit Auth-Context die Session sieht
+        await new Promise(r => setTimeout(r, 300));
+      }
+
+      setLoading(false);
       router.replace("/(tabs)");
+    } catch (err: any) {
+      setLoading(false);
+      showMsg("Fehler", err?.message || "Netzwerkfehler");
     }
   }
 
