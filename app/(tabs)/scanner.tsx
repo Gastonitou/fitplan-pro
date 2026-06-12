@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import {
   View, Text, StyleSheet, TouchableOpacity, TextInput,
-  ActivityIndicator, ScrollView, Platform, Image, Dimensions,
+  ActivityIndicator, ScrollView, Platform, Image as RNImage, Dimensions,
 } from "react-native";
 
 const IS_WEB = Platform.OS === "web";
@@ -56,6 +56,46 @@ function getTodayLogs(logs: LogEntry[]) {
   return logs.filter((l) => new Date(l.timestamp).toISOString().split("T")[0] === today);
 }
 
+function fileToDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.onerror = () => reject(new Error("Datei konnte nicht gelesen werden"));
+    reader.readAsDataURL(file);
+  });
+}
+
+function resizeDataUrl(src: string, maxEdge = 900): Promise<string> {
+  return new Promise((resolve) => {
+    const img = new window.Image();
+    img.onload = () => {
+      let w = img.naturalWidth;
+      let h = img.naturalHeight;
+      if (w > h && w > maxEdge) {
+        h = Math.round((h * maxEdge) / w);
+        w = maxEdge;
+      } else if (h > w && h > maxEdge) {
+        w = Math.round((w * maxEdge) / h);
+        h = maxEdge;
+      }
+
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.max(1, w);
+      canvas.height = Math.max(1, h);
+      const ctx = canvas.getContext("2d");
+      if (!ctx) {
+        resolve(src);
+        return;
+      }
+
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      resolve(canvas.toDataURL("image/jpeg", 0.8));
+    };
+    img.onerror = () => resolve(src);
+    img.src = src;
+  });
+}
+
 // ─── Try decode barcode from image (BarcodeDetector API) ────────────
 async function tryDecodeBarcode(img: HTMLImageElement): Promise<string | null> {
   if (!("BarcodeDetector" in window)) return null;
@@ -67,6 +107,61 @@ async function tryDecodeBarcode(img: HTMLImageElement): Promise<string | null> {
     if (barcodes.length > 0) return barcodes[0].rawValue;
   } catch {}
   return null;
+}
+
+async function tryDecodeBarcodeQuagga(dataUrl: string): Promise<string | null> {
+  try {
+    const mod = await import("quagga");
+    const Quagga: any = (mod as any)?.default || mod;
+    if (!Quagga || typeof Quagga.decodeSingle !== "function") return null;
+
+    const resized = await resizeDataUrl(dataUrl, 900);
+    return await new Promise((resolve) => {
+      let finished = false;
+      const done = (value: string | null) => {
+        if (!finished) {
+          finished = true;
+          resolve(value);
+        }
+      };
+
+      try {
+        Quagga.decodeSingle(
+          {
+            decoder: { readers: ["ean_reader", "ean_8_reader", "upc_reader", "code_128_reader"] },
+            locate: true,
+            src: resized,
+          },
+          (result: any) => done(result?.codeResult?.code || null)
+        );
+      } catch {
+        done(null);
+      }
+
+      setTimeout(() => done(null), 8000);
+    });
+  } catch {
+    return null;
+  }
+}
+
+async function decodeBarcodeFromFile(file: File): Promise<string | null> {
+  const objectUrl = URL.createObjectURL(file);
+  try {
+    const detected = await new Promise<string | null>((resolve) => {
+      const img = new window.Image();
+      img.onload = async () => resolve(await tryDecodeBarcode(img));
+      img.onerror = () => resolve(null);
+      img.src = objectUrl;
+    });
+    if (detected) return detected;
+
+    const dataUrl = await fileToDataUrl(file);
+    if (!dataUrl) return null;
+    return await tryDecodeBarcodeQuagga(dataUrl);
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
 }
 
 // ─── Page Component ─────────────────────────────────────────────────
@@ -88,6 +183,12 @@ export default function ScannerScreen() {
   const takePhoto = useCallback(async () => {
     setError("");
     setMode("scanning");
+    if (!IS_WEB) {
+      setError("Foto-Scan ist aktuell nur in der Web-App verfügbar.");
+      setMode("menu");
+      return;
+    }
+
     try {
       const input = document.createElement("input");
       input.type = "file";
@@ -99,13 +200,8 @@ export default function ScannerScreen() {
         input.onchange = async (e: any) => {
           const file = e.target?.files?.[0];
           if (!file) { resolve(null); return; }
-          const img = new Image();
-          img.onload = async () => {
-            const code = await tryDecodeBarcode(img);
-            resolve(code);
-          };
-          img.onerror = () => resolve(null);
-          img.src = URL.createObjectURL(file);
+          const code = await decodeBarcodeFromFile(file);
+          resolve(code);
         };
         document.body.appendChild(input);
         input.click();
@@ -120,7 +216,7 @@ export default function ScannerScreen() {
         setMode("menu");
       }
     } catch {
-      setError("Kamera nicht verfügbar. Bitte manuell eingeben oder nach Namen suchen.");
+      setError("Foto konnte nicht analysiert werden. Bitte Barcode manuell eingeben oder nach Namen suchen.");
       setMode("menu");
     }
   }, []);
@@ -374,7 +470,7 @@ export default function ScannerScreen() {
         <View style={styles.card}>
           <Text style={styles.cardTitle}>📦 Gefunden</Text>
           {product.image ? (
-            <Image source={{ uri: product.image }} style={styles.prodImg} />
+            <RNImage source={{ uri: product.image }} style={styles.prodImg} />
           ) : (
             <View style={styles.prodImgPlaceholder}><Text style={{ fontSize: 32 }}>📦</Text></View>
           )}
